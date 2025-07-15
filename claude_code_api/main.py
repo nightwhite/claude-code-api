@@ -14,6 +14,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from claude_code_api.core.config import settings
 from claude_code_api.core.database import create_tables, close_database
@@ -175,12 +179,27 @@ app.include_router(projects_router, prefix="/v1", tags=["projects"])
 app.include_router(sessions_router, prefix="/v1", tags=["sessions"])
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the application."""
+    import argparse
     import uvicorn
+
+    parser = argparse.ArgumentParser(description="Claude Code API Gateway")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload (development mode)")
+    parser.add_argument("--log-level", default="info", help="Log level")
+
+    args = parser.parse_args()
+
     uvicorn.run(
         "claude_code_api.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        log_level=args.log_level
     )
+
+
+if __name__ == "__main__":
+    main()

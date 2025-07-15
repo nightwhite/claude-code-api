@@ -59,17 +59,51 @@ class ClaudeProcess:
                 model=model or settings.default_model
             )
             
-            # Start process from src directory (where Claude works without API key)
-            src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-            logger.info(f"Starting Claude from directory: {src_dir}")
+            # Prepare environment variables for Claude Code
+            env = os.environ.copy()
+
+            # Add Anthropic API key if configured
+            if settings.claude_api_key:
+                env['ANTHROPIC_API_KEY'] = settings.claude_api_key
+                logger.info("Using configured Anthropic API key")
+            elif 'ANTHROPIC_API_KEY' in os.environ:
+                logger.info("Using Anthropic API key from environment")
+
+            # Add Anthropic auth token if configured (alternative to API key)
+            if settings.anthropic_auth_token:
+                env['ANTHROPIC_AUTH_TOKEN'] = settings.anthropic_auth_token
+                # Also set as ANTHROPIC_API_KEY since Claude Code CLI expects this
+                if not env.get('ANTHROPIC_API_KEY'):
+                    env['ANTHROPIC_API_KEY'] = settings.anthropic_auth_token
+                logger.info("Using configured Anthropic auth token as API key")
+            elif 'ANTHROPIC_AUTH_TOKEN' in os.environ:
+                # Also set as ANTHROPIC_API_KEY since Claude Code CLI expects this
+                if not env.get('ANTHROPIC_API_KEY'):
+                    env['ANTHROPIC_API_KEY'] = os.environ['ANTHROPIC_AUTH_TOKEN']
+                logger.info("Using Anthropic auth token from environment as API key")
+
+            # Check if we have any authentication configured
+            if not env.get('ANTHROPIC_API_KEY'):
+                logger.warning("No Anthropic API key found - Claude Code may require login")
+
+            # Add custom Anthropic base URL if configured
+            if settings.anthropic_base_url:
+                env['ANTHROPIC_BASE_URL'] = settings.anthropic_base_url
+                logger.info("Using custom Anthropic base URL", base_url=settings.anthropic_base_url)
+            elif 'ANTHROPIC_BASE_URL' in os.environ:
+                logger.info("Using Anthropic base URL from environment", base_url=os.environ['ANTHROPIC_BASE_URL'])
+
+            # Start process from project directory so files are created in the right place
+            logger.info(f"Starting Claude from project directory: {self.project_path}")
             logger.info(f"Command: {' '.join(cmd)}")
-            
+
             # Claude CLI runs to completion, so we run it and capture all output
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
-                cwd=src_dir,
+                cwd=self.project_path,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
             
             # Wait for process to complete and capture all output
@@ -85,6 +119,16 @@ class ClaudeProcess:
                 stdout_preview=stdout.decode()[:200] if stdout else "empty"
             )
             
+            logger.info(
+                "Claude process exit details",
+                session_id=self.session_id,
+                return_code=self.process.returncode,
+                stdout_length=len(stdout),
+                stderr_length=len(stderr),
+                stdout_preview=stdout.decode()[:500] if stdout else "empty",
+                stderr_preview=stderr.decode()[:500] if stderr else "empty"
+            )
+
             if self.process.returncode == 0:
                 # Parse the output lines and put them in the queue
                 output_lines = stdout.decode().strip().split('\n')

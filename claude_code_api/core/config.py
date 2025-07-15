@@ -73,10 +73,33 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [x.strip() for x in v.split(',') if x.strip()]
         return v or []
+
+    @field_validator('claude_api_key', mode='before')
+    def parse_claude_api_key(cls, v):
+        # If not provided, try to get from environment
+        if not v:
+            return os.environ.get('ANTHROPIC_API_KEY', '')
+        return v
+
+    @field_validator('anthropic_base_url', mode='before')
+    def parse_anthropic_base_url(cls, v):
+        # If not provided, try to get from environment
+        if not v:
+            return os.environ.get('ANTHROPIC_BASE_URL', '')
+        return v
+
+    @field_validator('anthropic_auth_token', mode='before')
+    def parse_anthropic_auth_token(cls, v):
+        # If not provided, try to get from environment
+        if not v:
+            return os.environ.get('ANTHROPIC_AUTH_TOKEN', '')
+        return v
     
-    # Claude Configuration  
+    # Claude Configuration
     claude_binary_path: str = find_claude_binary()
-    claude_api_key: str = ""
+    claude_api_key: str = Field(default="", description="Anthropic API key for Claude Code")
+    anthropic_base_url: str = Field(default="", description="Custom Anthropic API base URL")
+    anthropic_auth_token: str = Field(default="", description="Anthropic auth token (alternative to API key)")
     default_model: str = "claude-3-5-sonnet-20241022"
     max_concurrent_sessions: int = 10
     session_timeout_minutes: int = 30

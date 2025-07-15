@@ -2,24 +2,63 @@
 
 # Python targets
 install:
-	pip install -e .
-	pip install requests
+	uv sync
+	uv add requests
 
 test:
-	python -m pytest tests/ -v
+	uv run pytest tests/ -v
 
 test-real:
-	python tests/test_real_api.py
+	uv run python tests/test_real_api.py
 
 start:
-	uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude="*.db*" --reload-exclude="*.log"
+	uv run uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude="*.db*" --reload-exclude="*.log"
 
 start-prod:
-	uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000
+	uv run uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000
 
 clean:
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete
+	rm -rf build/ dist/ *.egg-info/
+	rm -rf docker-build/
+
+# Binary packaging targets
+install-build-deps:
+	uv add --dev pyinstaller
+
+build-binary:
+	@echo "Building standalone binary with PyInstaller..."
+	uv run pyinstaller --onefile \
+		--name claude-code-api \
+		--add-data "claude_code_api:claude_code_api" \
+		--hidden-import uvicorn \
+		--hidden-import uvicorn.lifespan.on \
+		--hidden-import uvicorn.lifespan.off \
+		--hidden-import uvicorn.protocols.websockets.auto \
+		--hidden-import uvicorn.protocols.http.auto \
+		--hidden-import uvicorn.protocols.http.h11_impl \
+		--hidden-import uvicorn.protocols.websockets.websockets_impl \
+		--hidden-import uvicorn.loops.auto \
+		--hidden-import uvicorn.loops.asyncio \
+		--hidden-import fastapi \
+		--hidden-import sqlalchemy.dialects.sqlite \
+		--hidden-import aiosqlite \
+		--hidden-import structlog \
+		--hidden-import pydantic \
+		--hidden-import pydantic_settings \
+		claude_code_api/main.py
+	@echo "Binary created in dist/claude-code-api"
+
+package-release:
+	@echo "Creating release package..."
+	mkdir -p dist/release
+	cp dist/claude-code-api dist/release/
+	cp README.md dist/release/
+	cp .env.example dist/release/
+	chmod +x dist/release/claude-code-api
+	cd dist && tar -czf claude-code-api-release.tar.gz release/
+	@echo "Release package created: dist/claude-code-api-release.tar.gz"
 
 kill:
 	@if [ -z "$(PORT)" ]; then \
@@ -42,24 +81,20 @@ kill:
 help:
 	@echo "Claude Code API Commands:"
 	@echo ""
-	@echo "Python API:"
-	@echo "  make install     - Install Python dependencies"
+	@echo "Python API (using uv):"
+	@echo "  make install     - Install Python dependencies with uv"
 	@echo "  make test        - Run Python unit tests with real Claude integration"
 	@echo "  make test-real   - Run REAL end-to-end tests (curls actual API)"
 	@echo "  make start       - Start Python API server (development with reload)"
 	@echo "  make start-prod  - Start Python API server (production)"
 	@echo ""
-	@echo "TypeScript API:"
-	@echo "  make install-js     - Install TypeScript dependencies" 
-	@echo "  make test-js        - Run TypeScript unit tests"
-	@echo "  make test-js-real   - Run Python test suite against TypeScript API"
-	@echo "  make start-js       - Start TypeScript API server (production)"
-	@echo "  make start-js-dev   - Start TypeScript API server (development with reload)"
-	@echo "  make start-js-prod  - Build and start TypeScript API server (production)"
-	@echo "  make build-js       - Build TypeScript project"
+	@echo "Binary Packaging:"
+	@echo "  make install-build-deps - Install PyInstaller with uv"
+	@echo "  make build-binary       - Build standalone binary with PyInstaller"
+	@echo "  make package-release    - Create complete release package"
 	@echo ""
 	@echo "General:"
-	@echo "  make clean       - Clean up Python cache files"
+	@echo "  make clean       - Clean up Python cache files and build artifacts"
 	@echo "  make kill PORT=X - Kill process on specific port"
 	@echo ""
 	@echo "IMPORTANT: Both implementations are functionally equivalent!"

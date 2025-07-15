@@ -2,6 +2,7 @@
 
 import uuid
 import json
+import os
 from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter, Request, HTTPException, status
@@ -20,6 +21,7 @@ from claude_code_api.models.openai import (
 from claude_code_api.models.claude import validate_claude_model, get_model_info
 from claude_code_api.core.claude_manager import create_project_directory
 from claude_code_api.core.session_manager import SessionManager, ConversationManager
+from claude_code_api.core.database import db_manager
 from claude_code_api.utils.streaming import create_sse_response, create_non_streaming_response
 from claude_code_api.utils.parser import ClaudeOutputParser, estimate_tokens
 
@@ -46,6 +48,7 @@ async def create_chat_completion(
         )
         
         # Parse JSON manually to see validation errors
+        json_data = {}
         if raw_body:
             try:
                 json_data = json.loads(raw_body.decode())
@@ -56,7 +59,12 @@ async def create_chat_completion(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"error": {"message": f"Invalid JSON: {str(e)}", "type": "invalid_request_error"}}
                 )
-        
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"message": "Empty request body", "type": "invalid_request_error"}}
+            )
+
         # Try to validate with Pydantic
         try:
             request = ChatCompletionRequest(**json_data)
@@ -134,7 +142,20 @@ async def create_chat_completion(
         
         # Handle project context
         project_id = request.project_id or f"default-{client_id}"
-        project_path = create_project_directory(project_id)
+
+        # Try to get project from database first
+        try:
+            project_info = await db_manager.get_project(project_id)
+            if project_info:
+                project_path = project_info.path
+                # Ensure the directory exists
+                os.makedirs(project_path, exist_ok=True)
+            else:
+                # Fallback to default project creation
+                project_path = create_project_directory(project_id)
+        except Exception:
+            # Fallback to default project creation
+            project_path = create_project_directory(project_id)
         
         # Handle session management
         if request.session_id:

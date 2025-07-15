@@ -329,3 +329,4 @@ docs/start.md
 docs/typescript-translation-plan.md
 
 # Note: test scripts in tests/ directory should be tracked in git
+uv.lock

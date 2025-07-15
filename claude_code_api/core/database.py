@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Boolean, Float,
-    ForeignKey, create_engine, MetaData
+    ForeignKey, create_engine, MetaData, select, func
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -138,6 +138,41 @@ class DatabaseManager:
         async with AsyncSessionLocal() as session:
             result = await session.get(Project, project_id)
             return result
+
+    @staticmethod
+    async def get_projects(page: int = 1, per_page: int = 20) -> List[Project]:
+        """Get projects with pagination."""
+        async with AsyncSessionLocal() as session:
+            offset = (page - 1) * per_page
+            result = await session.execute(
+                select(Project)
+                .where(Project.is_active == True)
+                .order_by(Project.created_at.desc())
+                .offset(offset)
+                .limit(per_page)
+            )
+            return result.scalars().all()
+
+    @staticmethod
+    async def count_projects() -> int:
+        """Count total active projects."""
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(func.count(Project.id))
+                .where(Project.is_active == True)
+            )
+            return result.scalar() or 0
+
+    @staticmethod
+    async def get_project_by_path(path: str) -> Optional[Project]:
+        """Get project by path."""
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Project)
+                .where(Project.path == path)
+                .where(Project.is_active == True)
+            )
+            return result.scalars().first()
     
     @staticmethod
     async def create_project(project_data: dict) -> Project:

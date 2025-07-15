@@ -1,11 +1,25 @@
 # Claude Code API Gateway
 
 A simple, focused OpenAI-compatible API gateway for Claude Code with streaming support.
-Leverage the Claude Code SDK use mode. Don't hack the token credentials.
+Automatically loads environment variables from `.env` file.
 
-## Getting Started
+## 🚀 Quick Start
 
-Use the Makefile to install the project or pip/uv.
+### 1. Install Dependencies
+```bash
+uv sync
+```
+
+### 2. Configure Environment
+```bash
+cp .env.example .env
+# Edit .env with your settings
+```
+
+### 3. Start Server
+```bash
+uv run uvicorn claude_code_api.main:app --host 127.0.0.1 --port 8001
+```
 
 ![API Started](assets/api.png)
 
