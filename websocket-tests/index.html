@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件监控管理器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            grid-template-rows: auto 1fr;
+            height: calc(100vh - 80px);
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .content-area {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 1rem;
+        }
+
+        .toolbar {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .file-explorer {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+        }
+
+        .activity-panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: #34495e;
+            color: white;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .panel-content {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .file-tree {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .file-item {
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .file-item:hover {
+            background: #f8f9fa;
+        }
+
+        .file-item.selected {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .file-item.directory {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .file-item.file {
+            color: #555;
+        }
+
+        .file-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .activity-log {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .log-entry.event {
+            color: #27ae60;
+        }
+
+        .log-entry.error {
+            color: #e74c3c;
+        }
+
+        .log-entry.info {
+            color: #3498db;
+        }
+
+        .log-timestamp {
+            color: #7f8c8d;
+            font-size: 0.75rem;
+        }
+
+        .watcher-list {
+            margin-top: 1rem;
+        }
+
+        .watcher-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .watcher-path {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .watcher-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-content {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .breadcrumb {
+            background: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 4px 4px 0 0;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+            padding: 2rem;
+            font-style: italic;
+        }
+
+        .loading-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #3498db;
+            font-size: 0.9rem;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e3f2fd;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .auto-refresh-badge {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .file-status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        .file-status-modified {
+            background: #ff9800;
+            box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+        }
+
+        .file-status-created {
+            background: #4caf50;
+            box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+        }
+
+        .file-status-deleted {
+            background: #f44336;
+            box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .file-item.has-changes {
+            background: rgba(255, 152, 0, 0.1);
+            border-left: 3px solid #ff9800;
+            padding-left: calc(0.5rem - 3px);
+        }
+
+        .clear-status-btn {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
+        .clear-status-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗂️ 文件监控管理器</h1>
+        <div id="connectionStatus" class="status-indicator status-disconnected">
+            <div class="status-dot"></div>
+            <span id="statusText">未连接</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- 侧边栏 - 监控配置 -->
+        <div class="sidebar">
+            <h3 style="margin-bottom: 1rem; color: #2c3e50;">监控配置</h3>
+
+            <!-- 连接控制 -->
+            <div class="form-group">
+                <label>连接状态</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="connectBtn" class="btn btn-success">连接</button>
+                    <button id="disconnectBtn" class="btn btn-danger" disabled>断开</button>
+                </div>
+            </div>
+
+            <!-- 文件夹监控 -->
+            <div class="form-group">
+                <label for="watchPath">监控路径</label>
+                <input type="text" id="watchPath" placeholder="/home/user/project" value="/tmp/test-watch">
+            </div>
+
+            <div class="form-group">
+                <label for="projectId">项目ID</label>
+                <input type="text" id="projectId" placeholder="my-project" value="test-project">
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="recursiveWatch" checked> 递归监控子目录
+                </label>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="startWatchBtn" class="btn btn-primary">开始监控</button>
+                    <button id="stopWatchBtn" class="btn btn-secondary">停止监控</button>
+                </div>
+            </div>
+
+            <!-- 当前监控列表 -->
+            <div class="watcher-list">
+                <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">活跃监控</h4>
+                <div id="watchersList">
+                    <div class="empty-state">暂无活跃监控</div>
+                </div>
+                <button id="refreshWatchersBtn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">刷新列表</button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="content-area">
+            <!-- 工具栏 -->
+            <div class="toolbar">
+                <div class="form-group" style="margin: 0; flex: 1;">
+                    <input type="text" id="treePath" placeholder="浏览路径" value="/tmp/test-watch" style="margin: 0;">
+                </div>
+                <input type="number" id="maxDepth" value="3" min="1" max="10" style="width: 80px;" title="最大深度">
+                <button id="browseBtn" class="btn btn-primary">浏览</button>
+                <button id="refreshTreeBtn" class="btn btn-secondary">刷新</button>
+                <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                    <input type="checkbox" id="autoRefreshToggle" checked>
+                    <span style="font-size: 0.9rem;">自动刷新</span>
+                </label>
+                <button id="clearStatusBtn" class="btn btn-secondary">清除状态</button>
+                <button id="clearLogsBtn" class="btn btn-secondary">清空日志</button>
+            </div>
+
+            <!-- 文件浏览器 -->
+            <div class="file-explorer">
+                <div class="panel-header">
+                    📁 文件浏览器
+                    <span id="currentPath" style="font-weight: normal; opacity: 0.8;"></span>
+                </div>
+                <div class="breadcrumb" id="breadcrumb">
+                    点击"浏览"按钮开始浏览文件
+                </div>
+                <div class="panel-content">
+                    <div id="fileTree" class="file-tree">
+                        <div class="empty-state">选择一个路径开始浏览文件</div>
+                    </div>
+                </div>
+                <div style="padding: 0.5rem; border-top: 1px solid #dee2e6; background: #f8f9fa;">
+                    <small style="color: #6c757d;">
+                        💡 点击文件查看内容，点击文件夹展开
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 活动面板 -->
+        <div class="activity-panel">
+            <div class="panel-header">📊 实时活动</div>
+            <div class="panel-content">
+                <!-- 文件内容查看器 -->
+                <div id="fileContentSection" style="display: none;">
+                    <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">文件内容</h4>
+                    <div style="font-size: 0.8rem; color: #6c757d; margin-bottom: 0.5rem;">
+                        <span id="fileName"></span>
+                        (<span id="fileSize"></span>, 修改时间: <span id="fileModified"></span>)
+                    </div>
+                    <div id="fileContent" class="file-content"></div>
+                </div>
+
+                <!-- 活动日志 -->
+                <div>
+                    <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">活动日志</h4>
+                    <div id="activityLog" class="activity-log">
+                        <div class="empty-state">等待活动...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let connectionId = null;
+        let currentWatchers = [];
+        let selectedFile = null;
+        let currentTreePath = null;
+        let autoRefreshEnabled = true;
+        let refreshTimeout = null;
+        let fileStatusMap = new Map(); // 存储文件状态 path -> {status, timestamp}
+
+        // DOM 元素
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusText = document.getElementById('statusText');
+        const activityLog = document.getElementById('activityLog');
+        const fileTree = document.getElementById('fileTree');
+        const watchersList = document.getElementById('watchersList');
+        const fileContentSection = document.getElementById('fileContentSection');
+        const fileContent = document.getElementById('fileContent');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const fileModified = document.getElementById('fileModified');
+        const currentPath = document.getElementById('currentPath');
+        const breadcrumb = document.getElementById('breadcrumb');
+
+        // 日志记录
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `
+                <div class="log-timestamp">${timestamp}</div>
+                <div>${message}</div>
+            `;
+
+            if (activityLog.querySelector('.empty-state')) {
+                activityLog.innerHTML = '';
+            }
+
+            activityLog.appendChild(logEntry);
+            activityLog.scrollTop = activityLog.scrollHeight;
+
+            // 保持最多100条日志
+            while (activityLog.children.length > 100) {
+                activityLog.removeChild(activityLog.firstChild);
+            }
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.className = 'status-indicator status-connected';
+                statusText.textContent = `已连接 (${connectionId?.substring(0, 8)}...)`;
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            } else {
+                connectionStatus.className = 'status-indicator status-disconnected';
+                statusText.textContent = '未连接';
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            }
+        }
+        
+        // WebSocket 连接管理
+        function connect() {
+            if (ws) return;
+
+            addLog('正在连接到服务器...', 'info');
+            ws = new WebSocket('ws://localhost:8080/v1/files/ws');
+
+            ws.onopen = function() {
+                addLog('WebSocket 连接成功！', 'event');
+                updateConnectionStatus(true);
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    addLog(`消息解析错误: ${e.message}`, 'error');
+                }
+            };
+
+            ws.onclose = function() {
+                addLog('WebSocket 连接已断开', 'error');
+                updateConnectionStatus(false);
+                ws = null;
+                connectionId = null;
+            };
+
+            ws.onerror = function(error) {
+                addLog(`WebSocket 错误: ${error}`, 'error');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        // 消息处理
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'connected':
+                    connectionId = data.connection_id;
+                    updateConnectionStatus(true);
+                    addLog(`连接已建立，ID: ${connectionId}`, 'event');
+                    break;
+
+                case 'file_tree':
+                    displayFileTree(data.data);
+                    break;
+
+                case 'file_content':
+                    displayFileContent(data.data);
+                    break;
+
+                case 'watching_started':
+                    addLog(`开始监控: ${data.data.path}`, 'event');
+                    refreshWatchers();
+                    break;
+
+                case 'watching_stopped':
+                    addLog(`停止监控: ${data.data.path}`, 'event');
+                    refreshWatchers();
+                    break;
+
+                case 'watchers_status':
+                    updateWatchersList(data.data);
+                    break;
+
+                case 'file_event':
+                    handleFileEvent(data.data);
+                    break;
+
+                case 'error':
+                    addLog(`错误: ${data.data.message}`, 'error');
+                    break;
+
+                case 'pong':
+                    addLog('服务器响应正常', 'info');
+                    break;
+
+                default:
+                    addLog(`未知消息类型: ${data.type}`, 'info');
+            }
+        }
+        
+        // 发送消息
+        function sendMessage(type, data = {}) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addLog('WebSocket 未连接', 'error');
+                return false;
+            }
+
+            const message = { type, data };
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // 文件事件处理
+        function handleFileEvent(eventData) {
+            const eventTypes = {
+                'created': '📄 创建',
+                'modified': '✏️ 修改',
+                'deleted': '🗑️ 删除',
+                'moved': '📁 移动'
+            };
+
+            const eventIcon = eventTypes[eventData.event_type] || '📝';
+            const fileName = eventData.src_path.split('/').pop();
+            const fileDir = eventData.src_path.substring(0, eventData.src_path.lastIndexOf('/'));
+
+            addLog(`${eventIcon} ${fileName}`, 'event');
+            addLog(`   路径: ${eventData.src_path}`, 'info');
+
+            // 调试信息：显示忽略标志
+            if (eventData.should_ignore !== undefined) {
+                addLog(`   忽略标志: ${eventData.should_ignore ? '是' : '否'}`, 'info');
+            } else {
+                addLog(`   ⚠️ 缺少忽略标志`, 'info');
+            }
+
+            if (eventData.dest_path) {
+                addLog(`   目标: ${eventData.dest_path}`, 'info');
+            }
+
+            // 处理文件状态标记（不刷新整个树）
+            if (currentTreePath) {
+                // 首先检查后端是否标记为应该忽略
+                if (eventData.should_ignore === true) {
+                    addLog(`🚫 忽略的文件变化，不更新状态`, 'info');
+                    return;
+                }
+
+                // 检查事件是否发生在当前显示的目录或其子目录中
+                if (shouldRefreshTree(eventData.src_path, eventData.dest_path)) {
+                    // 更新文件状态而不是刷新整个树
+                    updateFileStatus(eventData.src_path, eventData.event_type);
+
+                    // 只有在创建或删除文件/目录时才刷新树结构
+                    if (eventData.event_type === 'created' || eventData.event_type === 'deleted') {
+                        addLog(`🔄 文件结构变化，准备刷新目录树`, 'info');
+
+                        // 清除之前的刷新计时器
+                        if (refreshTimeout) {
+                            clearTimeout(refreshTimeout);
+                        }
+
+                        // 设置新的刷新计时器（防抖）
+                        refreshTimeout = setTimeout(() => {
+                            addLog(`🔄 执行目录树刷新`, 'info');
+                            refreshCurrentTree();
+                            refreshTimeout = null;
+                        }, 1000); // 1秒防抖延迟
+                    } else {
+                        addLog(`📝 文件内容变化，仅更新状态标记`, 'info');
+                    }
+                }
+            }
+        }
+
+        // 判断是否需要刷新目录树
+        function shouldRefreshTree(srcPath, destPath) {
+            if (!currentTreePath) return false;
+
+            // 检查源路径是否在当前目录下
+            const isInCurrentTree = srcPath.startsWith(currentTreePath);
+
+            // 检查目标路径是否在当前目录下（移动操作）
+            const destInCurrentTree = destPath && destPath.startsWith(currentTreePath);
+
+            return isInCurrentTree || destInCurrentTree;
+        }
+
+        // 更新文件状态
+        function updateFileStatus(filePath, eventType) {
+            const now = new Date();
+            fileStatusMap.set(filePath, {
+                status: eventType,
+                timestamp: now
+            });
+
+            // 在文件树中更新状态显示
+            updateFileTreeStatus(filePath, eventType);
+
+            addLog(`📍 标记文件状态: ${filePath.split('/').pop()} - ${eventType}`, 'info');
+        }
+
+        // 在文件树中更新状态显示
+        function updateFileTreeStatus(filePath, eventType) {
+            // 查找对应的文件项
+            const fileItems = document.querySelectorAll('.file-item');
+
+            fileItems.forEach(item => {
+                if (item.title === filePath) {
+                    // 移除旧的状态
+                    const oldIndicator = item.querySelector('.file-status-indicator');
+                    if (oldIndicator) {
+                        oldIndicator.remove();
+                    }
+
+                    // 添加新的状态指示器
+                    const indicator = document.createElement('span');
+                    indicator.className = `file-status-indicator file-status-${eventType}`;
+                    indicator.title = `文件${getEventTypeText(eventType)} - ${new Date().toLocaleTimeString()}`;
+
+                    item.appendChild(indicator);
+
+                    // 添加变化样式
+                    item.classList.add('has-changes');
+                }
+            });
+        }
+
+        // 获取事件类型文本
+        function getEventTypeText(eventType) {
+            const eventTexts = {
+                'created': '已创建',
+                'modified': '已修改',
+                'deleted': '已删除',
+                'moved': '已移动'
+            };
+            return eventTexts[eventType] || '已变化';
+        }
+
+        // 清除文件状态
+        function clearFileStatus(filePath) {
+            fileStatusMap.delete(filePath);
+
+            // 从文件树中移除状态显示
+            const fileItems = document.querySelectorAll('.file-item');
+            fileItems.forEach(item => {
+                if (item.title === filePath) {
+                    const indicator = item.querySelector('.file-status-indicator');
+                    if (indicator) {
+                        indicator.remove();
+                    }
+                    item.classList.remove('has-changes');
+                }
+            });
+        }
+
+        // 清除所有文件状态
+        function clearAllFileStatus() {
+            fileStatusMap.clear();
+
+            // 从文件树中移除所有状态显示
+            const indicators = document.querySelectorAll('.file-status-indicator');
+            indicators.forEach(indicator => indicator.remove());
+
+            const changedItems = document.querySelectorAll('.file-item.has-changes');
+            changedItems.forEach(item => item.classList.remove('has-changes'));
+
+            addLog(`🧹 已清除所有文件状态标记`, 'info');
+        }
+
+
+        // 刷新当前目录树
+        function refreshCurrentTree() {
+            if (currentTreePath) {
+                showLoadingIndicator();
+                const maxDepth = parseInt(document.getElementById('maxDepth').value) || 3;
+                sendMessage('get_file_tree', { path: currentTreePath, max_depth: maxDepth });
+            }
+        }
+
+        // 显示加载指示器
+        function showLoadingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'loading-indicator';
+            indicator.id = 'loadingIndicator';
+            indicator.innerHTML = `
+                <div class="spinner"></div>
+                <span>正在刷新...</span>
+            `;
+
+            // 添加到面包屑旁边
+            const breadcrumbEl = document.getElementById('breadcrumb');
+            if (breadcrumbEl && !document.getElementById('loadingIndicator')) {
+                breadcrumbEl.appendChild(indicator);
+            }
+        }
+
+        // 隐藏加载指示器
+        function hideLoadingIndicator() {
+            const indicator = document.getElementById('loadingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // 文件树显示
+        function displayFileTree(treeData) {
+            currentTreePath = treeData.path; // 记录当前路径
+            currentPath.textContent = treeData.path;
+
+            // 更新面包屑，添加自动刷新状态和文件状态统计
+            const autoRefreshBadge = autoRefreshEnabled ?
+                '<span class="auto-refresh-badge">🔄 自动刷新</span>' : '';
+
+            const statusCount = fileStatusMap.size;
+            const statusBadge = statusCount > 0 ?
+                `<span class="auto-refresh-badge" style="background: #fff3e0; color: #f57c00;">📍 ${statusCount} 个文件有变化</span>` : '';
+
+            breadcrumb.innerHTML = `📁 ${treeData.path} ${autoRefreshBadge} ${statusBadge}`;
+
+            // 隐藏加载指示器
+            hideLoadingIndicator();
+
+            fileTree.innerHTML = '';
+
+            if (!treeData.tree || !treeData.tree.children) {
+                fileTree.innerHTML = '<div class="empty-state">目录为空或无法访问</div>';
+                return;
+            }
+
+            renderTreeNode(treeData.tree, fileTree, 0);
+            addLog(`文件树已更新: ${treeData.tree.children.length} 个项目`, 'info');
+        }
+
+        function renderTreeNode(node, container, level) {
+            const item = document.createElement('div');
+            item.className = `file-item ${node.type}`;
+            item.style.marginLeft = `${level * 20}px`;
+
+            const icon = node.type === 'directory' ? '📁' : getFileIcon(node.name);
+            const size = node.size ? ` (${formatFileSize(node.size)})` : '';
+
+            item.innerHTML = `
+                <span class="file-icon">${icon}</span>
+                <span>${node.name}${size}</span>
+            `;
+
+            item.title = node.path;
+            item.onclick = () => selectFile(node);
+
+            // 检查是否有状态需要恢复
+            if (fileStatusMap.has(node.path)) {
+                const statusInfo = fileStatusMap.get(node.path);
+                const indicator = document.createElement('span');
+                indicator.className = `file-status-indicator file-status-${statusInfo.status}`;
+                indicator.title = `文件${getEventTypeText(statusInfo.status)} - ${statusInfo.timestamp.toLocaleTimeString()}`;
+
+                item.appendChild(indicator);
+                item.classList.add('has-changes');
+            }
+
+            container.appendChild(item);
+
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => {
+                    renderTreeNode(child, container, level + 1);
+                });
+            }
+        }
+
+        function selectFile(node) {
+            // 移除之前的选中状态
+            document.querySelectorAll('.file-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // 添加选中状态
+            event.target.closest('.file-item').classList.add('selected');
+
+            selectedFile = node;
+
+            if (node.type === 'file') {
+                // 清除该文件的状态标记（用户已查看）
+                clearFileStatus(node.path);
+
+                // 获取文件内容
+                sendMessage('get_file_content', { file_path: node.path });
+                addLog(`正在读取文件: ${node.name}`, 'info');
+            } else {
+                // 如果是目录，可以选择浏览该目录
+                document.getElementById('treePath').value = node.path;
+            }
+        }
+        
+        // 文件内容显示
+        function displayFileContent(contentData) {
+            fileContentSection.style.display = 'block';
+
+            fileName.textContent = contentData.path.split('/').pop();
+            fileSize.textContent = formatFileSize(contentData.size);
+            fileModified.textContent = new Date(contentData.modified).toLocaleString();
+
+            if (contentData.is_binary) {
+                fileContent.innerHTML = `
+                    <div style="text-align: center; color: #6c757d; padding: 2rem;">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">📄</div>
+                        <div>二进制文件</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">
+                            无法显示内容 (${formatFileSize(contentData.size)})
+                        </div>
+                    </div>
+                `;
+            } else {
+                fileContent.textContent = contentData.content || '文件为空';
+            }
+
+            addLog(`文件内容已加载: ${contentData.path}`, 'info');
+        }
+
+        // 监控器列表更新
+        function updateWatchersList(watchersData) {
+            currentWatchers = watchersData.active_watchers || [];
+
+            if (currentWatchers.length === 0) {
+                watchersList.innerHTML = '<div class="empty-state">暂无活跃监控</div>';
+                return;
+            }
+
+            watchersList.innerHTML = '';
+            currentWatchers.forEach(watcher => {
+                const item = document.createElement('div');
+                item.className = 'watcher-item';
+                item.innerHTML = `
+                    <div class="watcher-path">📁 ${watcher.path}</div>
+                    <div class="watcher-info">
+                        <span>项目: ${watcher.project_id || '未指定'}</span>
+                        <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;"
+                                onclick="stopWatching('${watcher.path}')">停止</button>
+                    </div>
+                    <div style="font-size: 0.8rem; color: #6c757d; margin-top: 0.25rem;">
+                        事件: ${watcher.event_count} | 错误: ${watcher.error_count}
+                    </div>
+                `;
+                watchersList.appendChild(item);
+            });
+        }
+
+        // 工具函数
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            const icons = {
+                'js': '📜', 'ts': '📜', 'py': '🐍', 'java': '☕',
+                'html': '🌐', 'css': '🎨', 'json': '📋',
+                'txt': '📄', 'md': '📝', 'pdf': '📕',
+                'jpg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                'mp4': '🎬', 'mp3': '🎵', 'zip': '📦'
+            };
+            return icons[ext] || '📄';
+        }
+        
+        // 监控操作
+        function startWatching() {
+            const path = document.getElementById('watchPath').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const recursive = document.getElementById('recursiveWatch').checked;
+
+            if (!path) {
+                addLog('请输入监控路径', 'error');
+                return;
+            }
+
+            if (sendMessage('start_watching', {
+                path,
+                project_id: projectId || 'default',
+                recursive
+            })) {
+                addLog(`正在启动监控: ${path}`, 'info');
+            }
+        }
+
+        function stopWatching(path) {
+            if (!path) {
+                path = document.getElementById('watchPath').value.trim();
+            }
+
+            if (!path) {
+                addLog('请输入要停止监控的路径', 'error');
+                return;
+            }
+
+            if (sendMessage('stop_watching', { path })) {
+                addLog(`正在停止监控: ${path}`, 'info');
+            }
+        }
+
+        function refreshWatchers() {
+            sendMessage('get_watchers');
+        }
+
+        function browseDirectory() {
+            const path = document.getElementById('treePath').value.trim();
+            const maxDepth = parseInt(document.getElementById('maxDepth').value) || 3;
+
+            if (!path) {
+                addLog('请输入浏览路径', 'error');
+                return;
+            }
+
+            if (sendMessage('get_file_tree', { path, max_depth: maxDepth })) {
+                addLog(`正在浏览目录: ${path}`, 'info');
+            }
+        }
+
+        function clearLogs() {
+            activityLog.innerHTML = '<div class="empty-state">日志已清空</div>';
+        }
+
+        function ping() {
+            if (sendMessage('ping')) {
+                addLog('发送心跳包...', 'info');
+            }
+        }
+
+        // 事件监听器
+        document.getElementById('connectBtn').onclick = connect;
+        document.getElementById('disconnectBtn').onclick = disconnect;
+        document.getElementById('startWatchBtn').onclick = startWatching;
+        document.getElementById('stopWatchBtn').onclick = () => stopWatching();
+        document.getElementById('refreshWatchersBtn').onclick = refreshWatchers;
+        document.getElementById('browseBtn').onclick = browseDirectory;
+        document.getElementById('refreshTreeBtn').onclick = refreshCurrentTree;
+        document.getElementById('clearStatusBtn').onclick = clearAllFileStatus;
+        document.getElementById('clearLogsBtn').onclick = clearLogs;
+
+        // 自动刷新开关
+        document.getElementById('autoRefreshToggle').onchange = function() {
+            autoRefreshEnabled = this.checked;
+            addLog(`自动刷新已${autoRefreshEnabled ? '启用' : '禁用'}`, 'info');
+        };
+
+        // 回车键支持
+        document.getElementById('treePath').onkeypress = (e) => {
+            if (e.key === 'Enter') browseDirectory();
+        };
+
+        document.getElementById('watchPath').onkeypress = (e) => {
+            if (e.key === 'Enter') startWatching();
+        };
+
+        // 页面加载完成后的初始化
+        window.onload = function() {
+            addLog('文件监控管理器已启动', 'info');
+            addLog('点击"连接"按钮开始使用', 'info');
+
+            // 定期心跳检测
+            setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ping();
+                }
+            }, 30000); // 每30秒发送一次心跳
+        };
+
+        // 页面关闭时清理
+        window.onbeforeunload = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html>

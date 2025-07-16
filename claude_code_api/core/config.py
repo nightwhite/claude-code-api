@@ -134,6 +134,48 @@ class Settings(BaseSettings):
     # Streaming Configuration
     streaming_chunk_size: int = 1024
     streaming_timeout_seconds: int = 300
+
+    # File Monitoring Configuration
+    file_watch_ignore_patterns: List[str] = Field(
+        default=[
+            "*.tmp",
+            "*.temp",
+            "*.log",
+            "*.swp",
+            "*.swo",
+            "*~",
+            ".DS_Store",
+            "Thumbs.db",
+            "node_modules/",
+            ".git/",
+            ".svn/",
+            ".hg/",
+            "__pycache__/",
+            "*.pyc",
+            "*.pyo",
+            ".pytest_cache/",
+            ".coverage",
+            "*.egg-info/",
+            "dist/",
+            "build/",
+            ".vscode/",
+            ".idea/",
+            "*.lock"
+        ],
+        description="Gitignore-style patterns for files/folders to ignore during monitoring"
+    )
+
+    @field_validator('file_watch_ignore_patterns', mode='before')
+    def parse_ignore_patterns(cls, v):
+        if isinstance(v, str):
+            # Split by comma or newline and filter empty strings
+            patterns = []
+            for line in v.replace(',', '\n').split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    patterns.append(line)
+            return patterns
+        return v or []
     
     class Config:
         env_file = ".env"

@@ -65,6 +65,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.session_manager = SessionManager()
     app.state.claude_manager = ClaudeManager()
     logger.info("Managers initialized")
+
+    # Initialize file watching components
+    from .core.event_manager import EventManager
+    from .core.file_watcher import FileWatcher
+
+    # Create event manager
+    event_manager = EventManager()
+    event_manager.start()
+    app.state.event_manager = event_manager
+
+    # Create file watcher
+    file_watcher = FileWatcher(event_manager.handle_file_event)
+    app.state.file_watcher = file_watcher
+
+    logger.info("File watching system initialized")
     
     # Verify Claude Code availability
     try:
@@ -78,8 +93,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
     
     yield
-    
-    # Cleanup
+
+    # Cleanup file watching components
+    if hasattr(app.state, 'file_watcher'):
+        app.state.file_watcher.stop_all()
+        logger.info("File watchers stopped")
+
+    if hasattr(app.state, 'event_manager'):
+        await app.state.event_manager.stop()
+        logger.info("Event manager stopped")
+
+    # Cleanup other components
     logger.info("Shutting down Claude Code API Gateway")
     await app.state.session_manager.cleanup_all()
     await close_database()
@@ -177,6 +201,10 @@ app.include_router(chat_router, prefix="/v1", tags=["chat"])
 app.include_router(models_router, prefix="/v1", tags=["models"])
 app.include_router(projects_router, prefix="/v1", tags=["projects"])
 app.include_router(sessions_router, prefix="/v1", tags=["sessions"])
+
+# Import and include files router
+from .api import files
+app.include_router(files.router, prefix="/v1", tags=["files"])
 
 
 def main():
